@@ -30,10 +30,10 @@ def parseArguments():
     return args
 
 
-def train(m, n, k, hyper_pars,  n_games=1_000):
-   
-    # value to decrease the exploration
-    delta = 0.02
+def train(m, n, k, hyper_pars, n_games=1_000):
+    
+    # set decrease of exploration rate 
+    delta = 0.2
 
     # init class
     dummy_game = Game(m, n, k, display=False)
