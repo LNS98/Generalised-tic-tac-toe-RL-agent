@@ -1,106 +1,7 @@
 """
-Implementation of hte m-n-k board game.
+Board class used in the m, n, k game.
 """
 
-import random
-import time
-from player import *
-
-class Game:
-
-    def __init__(self, m, n, k):
-        self.m = m  # horizontal length of the board
-        self.n = n  # vertical legnth of board
-        self.k = k  # number of things in a row
-        # empty board
-        self.board = Board(self.m, self.n, self.k)
-        self.board.initi_board()
-
-
-    def initialize_game(self, player1, player2):
-
-        # init the two players
-        self.player1 = player1 # PlayerRL(self.board, "X", self.m, self.n, self.k)
-        self.player2 = player2 # PlayerRL(self.board, "O", self.m, self.n, self.k)
-
-        #  print the board
-        # self.board.drawboard()
-
-    def reset_game(self):
-        # empty board
-        self.board = Board(self.m, self.n, self.k)
-        self.board.initi_board()
-        # re initialse the scores
-        self.scores = [0 for i in range(self.m + self.n + 2*(self.m+self.n-1))]
-        self.positions_occcupied = 0
-
-        # make the board be the one for the agent
-        self.player1.board = self.board
-        self.player2.board = self.board
-
-
-
-    def game_status(self):
-        """
-        Check the board status to see who (if anyone) has won
-        """
-        # get the result from the  board  status function
-        status = self.board.board_status()
-
-        # player 1 has won
-        if status == 1:
-            print("Game finished, player 1 has won")
-
-        # player 2 has won
-        if status == -1:
-            print("Game finished, player 2 has won")
-
-        if status == 0:
-            print("Game finished, game tied")
-
-
-        return status
-
-
-    def play(self, debug = False):
-
-        # start clock
-        # start = time.time()
-
-        episode_states = []
-
-        # while not game finished
-        while True:
-            for player in [self.player1, self.player2]:
-
-
-                # make the move for the players
-                row, col = player.move()
-                # change the baord
-                self.board._add_move(row, col, player.name_player)
-                # show the board
-                # make the game go slower
-                if debug == True:
-                    time.sleep(0.5)
-                    self.board.drawboard()
-
-                # check the status of the game
-                status = self.game_status()
-
-                # append the state to the episodes states
-                episode_states.append(self.board.scores)
-
-                # evaluate the speed at every move
-                # time_per_move = time.time() - start
-                # start = time.time()
-                # print("-------- time per move: {}".format(time_per_move))
-
-                # if status is true the game has ended
-                if status != None:
-                    # reset the game
-                    self.reset_game()
-
-                    return (episode_states, status)
 
 
 class Board:
@@ -137,7 +38,7 @@ class Board:
 
         print(board_str)
 
-
+    # THIS IS NOT USED AND AT THE FIRST ROUND IT DOESNT CHECK FOR VALIDITY 
     def is_valid(self, row, col):
 
         return  ((0 <= row <= self.m and 0 <= col <= self.n) and
@@ -207,15 +108,3 @@ class Board:
         return None
 
 
-
-
-if __name__ == '__main__':
-
-    # init define variables for the game
-    m, n, k = 3, 3, 3
-    # init class
-    dummy_game = Game(m, n, k)
-    # initialise game
-    dummy_game.initialize_game()
-
-    dummy_game.play()

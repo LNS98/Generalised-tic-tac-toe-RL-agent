@@ -1,188 +1,41 @@
-
+"""
+Class for RL player. 
+"""
 
 import numpy as np
 import random
 import torch
 import collections
 
+from players.base_player import Player 
 
-
-class Player:
-
-    def __init__(self, board, name_player, m, n, k):
-
-        self.board = board
-        self.name_player = name_player
-        self.m = m
-        self.n = n
-        self.k = k
-
-    def move(self):
-
-        # player 1  place a thing on the coordinate
-        row = int(input("Row number: "))
-        col = int(input("column number: "))
-
-        # ADD SOME CHECKS
-        while not self.board.is_valid(row, col):
-
-            print("Inputs not valid.")
-            print("Please provide a row number between {} and {}".format(0, self.m))
-            print("Please provide a column number between {} and {}".format(0, self.n))
-            print("Also make sure that the entry is empty.")
-
-            # re-ask for the inputs
-            row = int(input("Row number: "))
-            col = int(input("column number: "))
-
-        return (row, col)
-
-
-class PlayerAutomatic(Player):
-    """
-    Random player that playes automatically
-    """
-
-
-    def __init__(self, board, name_player, m, n, k):
-
-        super().__init__(board, name_player, m, n, k)
-
-    def move(self):
-
-        # choose a position ranadomly
-        row = random.randint(0, self.m-1)
-        col = random.randint(0, self.n-1)
-
-        # check if the cordintaes are valid
-        while not self.board.is_valid(row, col):
-
-            # get new ones if not valid
-            row = random.randint(0, self.m-1)
-            col = random.randint(0, self.n-1)
-
-        return (row, col)
-
-
-class PlayerAI(Player):
-    """
-    Random player that playes automatically
-    """
-
-
-    def __init__(self, board, name_player, m, n, k):
-        super().__init__(board, name_player, m, n, k)
-
-
-    def move(self):
-
-        # choose a position ranadomly
-        row, col = self._select_move()
-
-        return (row, col)
-
-
-    def _select_move(self):
-
-        # get the best move given the mini/max player
-        if self.name_player == "X":
-            # get the available moves
-            best_move = self.max(0, -1e10, 1e10)[1]
-        else:
-            best_move = self.mini(0, -1e10, 1e10)[1]
-
-        return best_move
-
-    def max(self, depth, alpha, beta):
-
-        # check if the depth is 0
-        if self.board.board_status() != None:
-            # print("Depth Reached: {}".format(depth))
-            return self.board.board_status(), None
-
-        # if starting with the max player
-        max_eval = -1e10
-        best_move = None
-
-        # get the available moves
-        next_moves = [(x, y) for x in range(self.m) for y in range(self.n) if self.board.is_valid(x, y)]
-
-        # check all child nodes
-        for move in next_moves:
-
-            # make the move
-            self.board._add_move(move[0], move[1], "X")
-
-            eval = self.mini(depth - 1, alpha, beta)[0]
-
-            # update alpha and check if it is bigger than beta
-            alpha = max(alpha, eval)
-
-            # check if it is bigger than previous
-            if eval > max_eval:
-                best_move = move
-                max_eval = eval
-
-            # undo move
-            self.board._undo_move(move[0], move[1], "X")
-
-            if alpha >= beta:
-                break
-
-        return max_eval, best_move
-
-
-
-    def mini(self, depth, alpha, beta):
-
-        # check if the depth is 0
-        if self.board.board_status() != None:
-            # print("Depth Reached: {}".format(depth))
-            return self.board.board_status(), None
-
-        min_eval = 1e10
-        best_move = None
-
-        # get the available moves
-        next_moves = [(x, y) for x in range(self.m) for y in range(self.n) if self.board.is_valid(x, y)]
-
-        # check all child nodes
-        for move in next_moves:
-            # make move
-            self.board._add_move(move[0], move[1], "O")
-
-            eval = self.max(depth - 1, alpha, beta)[0]
-
-            # update beta and check if it is bigger than alpha
-            beta = min(beta, eval)
-
-
-            # check if it is bigger than previous
-            if eval < min_eval:
-                best_move = move
-                min_eval = eval
-
-            # undo move
-            self.board._undo_move(move[0], move[1], "O")
-
-            if alpha >= beta:
-                break
-
-        return min_eval, best_move
-
+# fix randomness
+#random.seed(0)
+#np.random.seed(0)
+#torch.manual_seed(0)
 
 class PlayerRL(Player):
+    
 
-
-    def __init__(self, board, name_player, m, n, k, epsilon):
+    def __init__(self, board, name_player, m, n, k, hyper_parameters):
 
         super().__init__(board, name_player, m, n, k)
 
-        self.epsilon = epsilon
-        self.dqn = DQN(1, m, n)
+        # list of hyper-parameters for the agent 
+        self.epsilon = hyper_parameters["epsilon"]
+        self.gamma =  hyper_parameters["gamma"] 
+        self.minimax_depth = hyper_parameters["minimax_depth"] # this is an input to the best_move (its 3 now)
+        
+
+        self.dqn = DQN(self.gamma, m, n)
+        
+        # path to where to save the weights
+        self.weights_dir = f"./weights/{m}_{n}_{k}_{self.name_player}/"
+        self.weights_file = f"{self.epsilon}_{self.gamma}_{self.minimax_depth}.pth"
+
         # check if weightd for this network already exist
         try:
-            self.dqn.q_network.load_state_dict(torch.load( "{}_{}_{}_{}.pth".format(m, n, k, self.name_player)))
+            self.dqn.q_network.load_state_dict(torch.load(self.weight_path)) 
         except:
             print("{} never trained before".format(self.name_player))
 
@@ -205,9 +58,9 @@ class PlayerRL(Player):
 
         # get the best move given the mini/max player
         if self.name_player == "X":
-            best_move = self.max(3, -1e10, 1e10)[1]
+            best_move = self.max(self.minimax_depth, -1e10, 1e10)[1]
         else:
-            best_move = self.mini(3, -1e10, 1e10)[1]
+            best_move = self.mini(self.minimax_depth, -1e10, 1e10)[1]  
 
         # select with prob epsilon the random move
         moves = [best_move, random_move]
@@ -304,25 +157,21 @@ class PlayerRL(Player):
 
 # The Network class inherits the torch.nn.Module class, which represents a neural network.
 class Network(torch.nn.Module):
-
-    # The class initialisation function. This takes as arguments the dimension of the network's input (i.e. the dimension of the state), and the dimension of the network's output (i.e. the dimension of the action).
+    
+    # THIS NETWORK LOOKS WAY TO HUGE 
     def __init__(self, input_dimension, output_dimension):
-        # Call the initialisation function of the parent class.
+    
         super(Network, self).__init__()
-        # Define the network layers. This example network has two hidden layers, each with 100 units.
-        self.layer_1 = torch.nn.Linear(in_features=input_dimension, out_features=100)
-        self.layer_2 = torch.nn.Linear(in_features=100, out_features=100)
-        self.layer_3 = torch.nn.Linear(in_features=100, out_features=100)
-        self.layer_4 = torch.nn.Linear(in_features=100, out_features=100)
-        self.output_layer = torch.nn.Linear(in_features=100, out_features=output_dimension)
+      
+        self.layer_1 = torch.nn.Linear(in_features=input_dimension, out_features=50)
+        self.layer_2 = torch.nn.Linear(in_features=50, out_features=50)
+        self.output_layer = torch.nn.Linear(in_features=50, out_features=output_dimension)
 
-    # Function which sends some input data through the network and returns the network's output. In this example, a ReLU activation function is used for both hidden layers, but the output layer has no activation function (it is just a linear layer).
+
     def forward(self, input):
         layer_1_output = torch.nn.functional.relu(self.layer_1(input))
         layer_2_output = torch.nn.functional.relu(self.layer_2(layer_1_output))
-        layer_3_output = torch.nn.functional.relu(self.layer_3(layer_2_output))
-        layer_4_output = torch.nn.functional.relu(self.layer_4(layer_3_output))
-        output = self.output_layer(layer_4_output)
+        output = self.output_layer(layer_2_output)
         return output
 
 # The DQN class determines how to train the above neural network.

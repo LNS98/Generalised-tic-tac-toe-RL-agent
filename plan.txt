@@ -1,0 +1,9 @@
+## Notes for the Repo 
+
+### Functionalities to add 
+
+- A train file to train a specified agent
+
+- A lot more checks for breaking in the game
+
+- More functionlity to test the state of training for the RL agent 
