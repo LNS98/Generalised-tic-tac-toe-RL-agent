@@ -46,13 +46,13 @@ No heuristics are included for the minimax agent and as such it always searches 
 
 - `players/` - Contains files for each of the implementation of the agents.
            
-            `base_player.py` - Contains class for the human player and the parent class used in the other two agent class.
-            `minimaxAlphaBeta_player.py` - Contains class for the minimax (with alpha-beta pruning) agent implementation.
-            `rl_player.py` - Contains class for the RL agent implementation.
+     - `base_player.py` - Contains class for the human player and the parent class used in the other two agent class.
+     - `minimaxAlphaBeta_player.py` - Contains class for the minimax (with alpha-beta pruning) agent implementation.
+     - `rl_player.py` - Contains class for the RL agent implementation.
             
 - `setup/` - Contains files for the implentation of the board and game.
            
-            `board.py` - Contains class for the board used in the creation of the game.
-            `game.py` - Contains class for the implementation of the game.  
+     - `board.py` - Contains class for the board used in the creation of the game.
+     - `game.py` - Contains class for the implementation of the game.  
 
 - `weights/` - Folder used to store the weights of the RL algorithms that are trained. Subdirectories are created based on the game details for every type of agent created. The file names of the agent will correspond to the selected hyper-paramets with order: epsilon, gamma, minimax depth. For example if X, O agents are trained on a m=3, n=3, k=3 game with hyper-parameters, epsilon=1, gamma=1, minimiax_depth=3. Then the weights will be save in `weights/3_3_3_X/1_1_3.pth` for the X player and `weights/3_3_3_O/1_1_3.pth`.
