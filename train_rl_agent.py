@@ -4,11 +4,28 @@ File containing scripts used to train the RL players.
 
 import argparse
 import torch
-import os  
+import matplotlib.pyplot as plt 
+
 
 from setup.board import Board
 from setup.game import Game
 from players.rl_player import PlayerRL
+
+# add all constants
+SAVE_MODEL = True
+DEBUG = False
+MINIBATCH_SIZE = 16
+MIN_REPLAY_SIZE = 5 + MINIBATCH_SIZE 
+
+GAMMA = 1
+EPSILON = 1
+EPSILON_DECAY = 0.05
+MINIMAX_DEPTH = 3
+MIN_EPSILON = 0.001
+
+DISPLAY_STATS_EVERY = 100
+SAVE_MODEL_EVERY = 400
+EPISODES = 1000
 
 def parseArguments():
 
@@ -19,119 +36,82 @@ def parseArguments():
     pars.add_argument("m", help="value of 'm', the number of rows in the game", default=3) 
     pars.add_argument("n", help="value of 'n', the number of coloumns  in the game", default=3) 
     pars.add_argument("k", help="value of 'k', the number of consecutives objects for a win ", default=3) 
-    # specify the parameters for training 
-    pars.add_argument("starting_epsilon", help="exploration rate at the start of training", default=1)
-    pars.add_argument("gamma", help="discount factor to reducre future rewards", default=1)
-    pars.add_argument("minimax_depth", help="depth to which minimax search is conducted", default=3)
-
 
     args = pars.parse_args()
 
     return args
 
 
-def train(m, n, k, hyper_pars, n_games=1_000):
+def train(m, n, k, hyper_pars):
     
-    # set decrease of exploration rate 
-    delta = 0.2
-
     # init class
     dummy_game = Game(m, n, k, display=False)
-    
+   
+    # define the hyper-parameters for the agent 
+
     # init the two agents 
     player1 = PlayerRL(dummy_game.board, "X", m, n, k, hyper_pars)
     player2 = PlayerRL(dummy_game.board, "O", m, n, k, hyper_pars)
-
-    # keep track of the wins 
-    wins_1 = 0
-    wins_2 = 0
-    ties = 0
+    
+    metrics = {"loss_X": [], "loss_O": []}
 
     print("--------------------- Start Trainning Games ------------------------------") 
     # play n_games
-    for i in range(n_games):
+    for i in range(EPISODES):
         # initialise game
         dummy_game.initialize_game(player1, player2)
 
         episode_states, Gt = dummy_game.play()
+        
+        # process for each player 
+        for player in [player1, player2]:
+            # decrease the explortion rate 
+            player.epsilon = max(player.epsilon-EPSILON_DECAY, MIN_EPSILON)
+            
+            # after every 100 games store the weights
+            if SAVE_MODEL == True and i % SAVE_MODEL_EVERY == 0:
+                print("Weights saved")
+                torch.save(player.dqn.q_network.state_dict(), player.weights_path) 
+             # add the transition to the ReplayBuffer
+            for state in episode_states:
+                player.buffer.add_transition((state, Gt))
 
-        # print the numebr of wins by each player
-        if Gt == 1:
-            wins_1 += 1
-        elif Gt == -1:
-            wins_2 += 1
-        else:
-            ties += 1
-        print("Player 1: {}, Player 2: {}, Ties: {}".format(wins_1, wins_2, ties))
-
-
-        # after every 100 games store the weights
-        if i % 100 == 0:
-            if isinstance(player1, PlayerRL):
-                # check if the directory exists 
-                if not os.path.exists(player1.weights_dir):
-                    os.mkdir(player1.weights_dir)
-                print("Save weights for player 1 and reset exploration")
-                player1.epsilon = 1
-                torch.save(player1.dqn.q_network.state_dict(), player1.weights_dir + player1.weights_file)
-      
-            if isinstance(player2, PlayerRL):
-                if not os.path.exists(player2.weights_dir):
-                    os.mkdir(player2.weights_dir)
-                print("Save weights for player 2 and reset exploration")
-                player2.epsilon = 1
-                torch.save(player2.dqn.q_network.state_dict(), player2.weights_dir + player2.weights_file)
-
-
-    # add the transition to the ReplayBuffer
-    for state in episode_states:
-        if isinstance(player1, PlayerRL):
-            if player1.epsilon - delta > 0:
-                player1.epsilon -= delta
-                player1.buffer.add_transition((state, Gt))
-            if isinstance(player2, PlayerRL):
-                if player2.epsilon - delta > 0:
-                    player2.epsilon -= delta
-                    player2.buffer.add_transition((state, Gt))
-
-
-    # train network
-    if isinstance(player1, PlayerRL):
-        if len(player1.buffer.container) > 5:
-            batch = player1.buffer.random_batch(5)
-            # add the training by computing the loss at each step
-            loss = player1.dqn.train_q_network(batch)
-
-        if isinstance(player2, PlayerRL):
-            if len(player2.buffer.container) > 5:
-                batch = player2.buffer.random_batch(5)
+            # train network
+            if len(player.buffer.container) > MIN_REPLAY_SIZE:
+                batch = player.buffer.random_batch(MINIBATCH_SIZE)
                 # add the training by computing the loss at each step
-                loss = player2.dqn.train_q_network(batch)
-
-
+                loss = player.dqn.train_q_network(batch)
+                metrics[f"loss_{player.name_player}"].append(loss)
+                            
+                    
+        if DEBUG==True and i % DISPLAY_STATS_EVERY == 0:
+            plt.plot([i for i in range(len(metrics["loss_X"]))], metrics["loss_X"])
+            plt.plot([i for i in range(len(metrics["loss_O"]))], metrics["loss_O"])
+            plt.show()
 
 
 # Main entry point
 if __name__ == "__main__":
+    
+
+    # fix randomness
+    #random.seed(0)
+    #np.random.seed(0)
+    #torch.manual_seed(0)
 
     args = parseArguments()
-
 
     # print the args
     for arg in args.__dict__:
         print(f"{arg}: {args.__dict__[arg]}")
     
-    
     # init define variables for the game
     m, n, k = int(args.m), int(args.n), int(args.k)
     
     # define the hyper-paramets 
-    hyper_pars = {"epsilon": int(args.starting_epsilon), "gamma": int(args.gamma), "minimax_depth": int(args.minimax_depth)}
+    hyper_pars = {"epsilon": EPSILON, "gamma": GAMMA, "minimax_depth": MINIMAX_DEPTH}
 
     # run the training 
     train(m, n, k, hyper_pars)
-
-
-
 
 

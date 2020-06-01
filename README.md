@@ -32,11 +32,9 @@ No heuristics are included for the minimax agent and as such it always searches 
     - m: a positive integer defining the number of rows in the game
     - n: a positive integer defining the number of columns in the game
     - k: number of consecutives objects for a win 
-    - epsilon: a number between 0-1 specifying the initial exploration rate for the agent. 
-    - gamma: discount factor for future rewards for the agent. 
-    - minimax_depth: depth to which the agent performs a minimax (with alpha-beta prununing) before estimating values for next move through a deep q-network.
+  
 
-<strong>Note: The q-networks weights will be saved after every 100 games for both 'X' and 'O' player in the specified weights folder (see Repository Guide for more information). </strong>
+<strong>Note: All the hyper-parameters for the agents are set as constants at the top of this file. </strong>
  
 ## Repository Guide 
 
@@ -55,4 +53,4 @@ No heuristics are included for the minimax agent and as such it always searches 
      - `board.py` - Contains class for the board used in the creation of the game.
      - `game.py` - Contains class for the implementation of the game.  
 
-- `weights/` - Folder used to store the weights of the RL algorithms that are trained. Subdirectories are created based on the game details for every type of agent created. The file names of the agent will correspond to the selected hyper-paramets with order: epsilon, gamma, minimax depth. For example if X, O agents are trained on a m=3, n=3, k=3 game with hyper-parameters, epsilon=1, gamma=1, minimiax_depth=3. Then the weights will be saved in `weights/3_3_3_X/1_1_3.pth` for the X player and `weights/3_3_3_O/1_1_3.pth`.
+- `weights/` - Folder used to store the weights of the RL algorithms that are trained. Files are created for a specific game selected to which each player's weights will be saved. For example if weights are selected to be saved for a m=3, n=3, k=3 game then both player X and O will be saved in folders: `weights/3_3_3_x.pth` and `weights/3_3_3_o.pth`

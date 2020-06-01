@@ -9,58 +9,51 @@ import collections
 
 from players.base_player import Player 
 
-# fix randomness
-#random.seed(0)
-#np.random.seed(0)
-#torch.manual_seed(0)
-
 class PlayerRL(Player):
     
 
-    def __init__(self, board, name_player, m, n, k, hyper_parameters):
+    def __init__(self, board, name_player, m, n, k, hyper_parameters, mode="train"):
 
         super().__init__(board, name_player, m, n, k)
 
         # list of hyper-parameters for the agent 
         self.epsilon = hyper_parameters["epsilon"]
         self.gamma =  hyper_parameters["gamma"] 
-        self.minimax_depth = hyper_parameters["minimax_depth"] # this is an input to the best_move (its 3 now)
-        
+        self.minimax_depth = hyper_parameters["minimax_depth"] # this is an input to the best_move
+        self.mode = mode
+
 
         self.dqn = DQN(self.gamma, m, n)
         
         # path to where to save the weights
-        self.weights_dir = f"./weights/{m}_{n}_{k}_{self.name_player}/"
-        self.weights_file = f"{self.epsilon}_{self.gamma}_{self.minimax_depth}.pth"
+        self.weights_path = f"./weights/{m}_{n}_{k}_{self.name_player}.pth"
 
         # check if weightd for this network already exist
         try:
-            self.dqn.q_network.load_state_dict(torch.load(self.weight_path)) 
+            self.dqn.q_network.load_state_dict(torch.load(self.weights_path)) 
         except:
             print("{} never trained before".format(self.name_player))
 
         self.buffer = ReplayBuffer()
 
 
-
     def move(self):
 
         # choose a position ranadomly
-        row, col = self._select_move()
+        if self.mode == "train":
+            row, col = self._e_greedy_move()
+        else:
+            row, col = self._best_move()
 
         return (row, col)
 
 
-    def _select_move(self):
+    def _e_greedy_move(self):
 
         # get a random move
         random_move = random.choice([(x, y) for x in range(self.m) for y in range(self.n) if self.board.is_valid(x, y)])
-
-        # get the best move given the mini/max player
-        if self.name_player == "X":
-            best_move = self.max(self.minimax_depth, -1e10, 1e10)[1]
-        else:
-            best_move = self.mini(self.minimax_depth, -1e10, 1e10)[1]  
+        # get the best move         
+        best_move = self._best_move()
 
         # select with prob epsilon the random move
         moves = [best_move, random_move]
@@ -69,6 +62,18 @@ class PlayerRL(Player):
         selected_move = moves[choice_index]
 
         return selected_move
+
+    def _best_move(self):
+
+        # get the best move given the mini/max player
+        if self.name_player == "X":
+            best_move = self.max(self.minimax_depth, -1e10, 1e10)[1]
+        else:
+            best_move = self.mini(self.minimax_depth, -1e10, 1e10)[1]  
+        
+        return best_move
+
+
 
     def max(self, depth, alpha, beta):
 
@@ -110,7 +115,6 @@ class PlayerRL(Player):
                 break
 
         return max_eval, best_move
-
 
 
     def mini(self, depth, alpha, beta):
@@ -155,10 +159,8 @@ class PlayerRL(Player):
         return min_eval, best_move
 
 
-# The Network class inherits the torch.nn.Module class, which represents a neural network.
 class Network(torch.nn.Module):
     
-    # THIS NETWORK LOOKS WAY TO HUGE 
     def __init__(self, input_dimension, output_dimension):
     
         super(Network, self).__init__()
@@ -182,22 +184,14 @@ class DQN:
         # Create a Q-network, which predicts the q-value for a particular state.
         self.q_network = Network(input_dimension=m+n+2*(m+n-1), output_dimension=1)
 
-        # create target network
-        # self.q_target_network = Network(input_dimension=m+n+2*(m+n-1), output_dimension=1)
-        # place the weights of the q_network to the target
-        # self.q_target_network.load_state_dict(self.q_network.state_dict())
-
-        # Define the optimiser which is used when updating the Q-network. The learning rate determines how big each gradient step is during backpropagation.
         self.optimiser = torch.optim.Adam(self.q_network.parameters(), lr=0.001)
         self.gamma = gamma
 
-    # Function that is called whenever we want to train the Q-network. Each call to this function takes in a transition tuple containing the data we use to update the Q-network.
     def train_q_network(self, transition):
         # Set all the gradients stored in the optimiser to zero.
         self.optimiser.zero_grad()
         # Calculate the loss for this transition.
         loss = self._calculate_loss(transition)
-        # Compute the gradients based on this loss, i.e. the gradients of the loss with respect to the Q-network parameters.
         loss.backward()
         # Take one gradient step to update the Q-network.
         self.optimiser.step()
@@ -209,14 +203,13 @@ class DQN:
     def _calculate_loss(self, transitions):
 
         batch_input_tensor = torch.tensor([transition[0] for transition in transitions]).float()
-        batch_labels_tensor = torch.tensor([transition[1] for transition in transitions]).float().view(5, 1)
+        batch_labels_tensor = torch.tensor([transition[1] for transition in transitions]).float().view(-1, 1)
 
         # Do a forward pass of the network using the inputs batch
         network_prediction = self.q_network.forward(batch_input_tensor)
 
         # Compute the loss based on the label's batch
         loss = torch.nn.MSELoss()(network_prediction, batch_labels_tensor)
-
 
         return loss
 
@@ -238,10 +231,8 @@ class ReplayBuffer:
         """
         Generate a random batch of transitions from the ReplayBuffer
         """
-
         # generate a bunch of random indicies in the correct length
         batch_indices = np.random.choice(range(len(self.container)), batch_number, replace = False)
-
         batch = [self.container[batch_index] for batch_index in batch_indices]
 
         return batch

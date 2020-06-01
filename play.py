@@ -49,14 +49,14 @@ if __name__ == "__main__":
     # use default hyper-par for rl agent
     if args.player_1 == "rl":
         hyper_pars = {"epsilon": 1, "gamma": 1, "minimax_depth": 3} 
-        player_x = player_dict[args.player_1](game.board, "X", m, n, k, hyper_pars) 
+        player_x = player_dict[args.player_1](game.board, "X", m, n, k, hyper_pars, mode="infer") 
     else:
         player_x = player_dict[args.player_1](game.board, "X", m, n, k)
    
    # same as for player 1
     if args.player_2 == "rl":
         hyper_pars = {"epsilon": 1, "gamma": 1, "minimax_depth": 3} 
-        player_o = player_dict[args.player_2](game.board, "O", m, n, k, hyper_pars)
+        player_o = player_dict[args.player_2](game.board, "O", m, n, k, hyper_pars, mode="infer")
     else:
         player_o = player_dict[args.player_2](game.board, "O", m, n, k)
 
